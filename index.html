@@ -1,0 +1,743 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Connected Maze: Reach myG</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #080c16;
+      --panel: #151f32;
+      --wall: #35445d;
+      --path: #050a16;
+      --cyan: #38bdf8;
+      --orange: #f59e0b;
+      --green: #34d399;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: radial-gradient(circle at top, #16243d, var(--bg) 65%);
+      color: #f8fafc;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .game-container {
+      width: min(100%, 560px);
+      padding: clamp(10px, 3vw, 18px);
+      border-radius: 18px;
+      background: var(--panel);
+      border: 1px solid #34445e;
+      box-shadow: 0 16px 50px #0008;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: var(--cyan);
+      font-size: clamp(17px, 4vw, 23px);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .stat-box {
+      background: #0b1323;
+      border: 1px solid #293951;
+      padding: 8px;
+      border-radius: 8px;
+      flex: 1;
+      text-align: center;
+    }
+
+    .stat-box strong {
+      display: block;
+      color: var(--cyan);
+      font-size: 15px;
+      margin-top: 3px;
+    }
+
+    #maze-grid {
+      display: grid;
+      grid-template-columns: repeat(41, minmax(0, 1fr));
+      grid-template-rows: repeat(41, minmax(0, 1fr));
+      width: 100%;
+      max-width: 510px;
+      aspect-ratio: 1;
+      background: var(--path);
+      border: 3px solid #64748b;
+      border-radius: 7px;
+      overflow: hidden;
+
+      /* Important for smooth touch and pointer dragging */
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      overscroll-behavior: contain;
+      cursor: grab;
+    }
+
+    #maze-grid.dragging {
+      cursor: grabbing;
+    }
+
+    .cell {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-size: clamp(5px, 1.7vw, 11px);
+      line-height: 1;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .wall {
+      background: linear-gradient(135deg, #40516c, #29364c);
+      box-shadow: inset 0 0 0 0.3px #172237;
+    }
+
+    .path {
+      background: var(--path);
+    }
+
+    .player {
+      z-index: 1;
+      background: #075985;
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 1px #38bdf8;
+      font-size: clamp(7px, 2vw, 14px);
+    }
+
+    .goal {
+      background: #3b101d;
+      box-shadow: inset 0 0 0 1px #ef4444;
+    }
+
+    .myg-badge {
+      color: white;
+      background: #ef4444;
+      padding: 1px;
+      border-radius: 2px;
+      font-size: clamp(4px, 1.1vw, 7px);
+      font-weight: 900;
+      box-shadow: 0 0 5px #ef444488;
+    }
+
+    .ball {
+      color: #fbbf24;
+      font-size: clamp(5px, 1.6vw, 10px);
+    }
+
+    #status {
+      min-height: 36px;
+      margin-top: 10px;
+      color: var(--green);
+      text-align: center;
+      font-weight: 600;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .action-btn {
+      flex: 1 1 135px;
+      padding: 11px 10px;
+      color: white;
+      background: #b96b05;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .action-btn:hover {
+      background: #d97706;
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .help {
+      color: #94a3b8;
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 360px) {
+      .stats {
+        font-size: 10px;
+      }
+
+      .stat-box {
+        padding: 6px 3px;
+      }
+
+      .action-btn {
+        flex-basis: 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .action-btn {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="game-container">
+    <h1>👦 Help the Boy Reach myG!</h1>
+    <p class="subtitle">Advanced Maze Challenge · Find the hidden route</p>
+
+    <div class="stats">
+      <div class="stat-box">
+        Steps
+        <strong id="step-count">0</strong>
+      </div>
+
+      <div class="stat-box">
+        Balls
+        <strong id="ball-count">0 / 6</strong>
+      </div>
+
+      <div class="stat-box">
+        Target
+        <strong style="color:#f87171">myG Store</strong>
+      </div>
+    </div>
+
+    <div id="maze-grid" aria-label="Interactive maze game"></div>
+
+    <div id="status" aria-live="polite">
+      Drag the boy to navigate. Use arrow keys or WASD on desktop.
+    </div>
+
+    <div class="controls">
+      <button class="action-btn" id="new-maze">
+        🎲 Generate Hard Maze
+      </button>
+      <button class="action-btn" id="restart">
+        🔄 Restart Maze
+      </button>
+    </div>
+
+    <p class="help">
+      Drag slowly or quickly in any direction.<br>
+      Walls block movement. Collect all 6 balls and reach myG!
+    </p>
+  </main>
+
+  <script>
+    "use strict";
+
+    // 41x41 gives a significantly larger maze.
+    // Keep this number odd.
+    const SIZE = 41;
+    const BALL_TOTAL = 6;
+
+    const START = { x: 1, y: 1 };
+    const GOAL = { x: SIZE - 2, y: SIZE - 2 };
+
+    // Cell types
+    const WALL = 1;
+    const PATH = 0;
+    const GOAL_CELL = 3;
+    const BALL = 5;
+
+    let mazeLayout = [];
+    let initialLayout = [];
+    let playerPos = { ...START };
+    let steps = 0;
+    let collectedBalls = 0;
+    let gameWon = false;
+
+    const grid = document.getElementById("maze-grid");
+    const statusText = document.getElementById("status");
+    const stepDisplay = document.getElementById("step-count");
+    const ballDisplay = document.getElementById("ball-count");
+
+    // --------------------------------------------------
+    // ADVANCED CONNECTED MAZE GENERATION
+    // --------------------------------------------------
+
+    function generateConnectedMaze() {
+      mazeLayout = Array.from(
+        { length: SIZE },
+        () => Array(SIZE).fill(WALL)
+      );
+
+      // Randomized recursive backtracker.
+      // Every carved cell is connected to the start.
+      function carve(x, y) {
+        mazeLayout[y][x] = PATH;
+
+        const directions = [
+          [0, -2],
+          [0, 2],
+          [-2, 0],
+          [2, 0]
+        ];
+
+        shuffle(directions);
+
+        for (const [dx, dy] of directions) {
+          const nx = x + dx;
+          const ny = y + dy;
+
+          if (
+            nx > 0 &&
+            nx < SIZE - 1 &&
+            ny > 0 &&
+            ny < SIZE - 1 &&
+            mazeLayout[ny][nx] === WALL
+          ) {
+            mazeLayout[y + dy / 2][x + dx / 2] = PATH;
+            carve(nx, ny);
+          }
+        }
+      }
+
+      carve(START.x, START.y);
+
+      // Create a limited number of loops.
+      // Lower values mean fewer shortcuts and a harder maze.
+      // Every new opening joins two already connected passages.
+      const loopChance = 0.065;
+
+      for (let y = 1; y < SIZE - 1; y++) {
+        for (let x = 1; x < SIZE - 1; x++) {
+          if (mazeLayout[y][x] !== WALL) continue;
+          if (Math.random() > loopChance) continue;
+
+          const horizontal =
+            mazeLayout[y][x - 1] === PATH &&
+            mazeLayout[y][x + 1] === PATH;
+
+          const vertical =
+            mazeLayout[y - 1][x] === PATH &&
+            mazeLayout[y + 1][x] === PATH;
+
+          if (horizontal || vertical) {
+            mazeLayout[y][x] = PATH;
+          }
+        }
+      }
+
+      // Guarantee a clean, connected entrance and goal.
+      mazeLayout[START.y][START.x] = PATH;
+      mazeLayout[GOAL.y][GOAL.x] = GOAL_CELL;
+
+      // Keep the immediate goal approach open.
+      // This only clears the final few cells.
+      mazeLayout[GOAL.y][GOAL.x - 1] = PATH;
+      mazeLayout[GOAL.y - 1][GOAL.x] = PATH;
+      mazeLayout[GOAL.y - 1][GOAL.x - 1] = PATH;
+
+      // Place balls on reachable corridors.
+      // Avoid the start and goal area.
+      const available = [];
+
+      for (let y = 1; y < SIZE - 1; y++) {
+        for (let x = 1; x < SIZE - 1; x++) {
+          if (mazeLayout[y][x] !== PATH) continue;
+
+          const nearGoal =
+            Math.abs(x - GOAL.x) <= 1 &&
+            Math.abs(y - GOAL.y) <= 1;
+
+          if (
+            (x !== START.x || y !== START.y) &&
+            !nearGoal
+          ) {
+            available.push({ x, y });
+          }
+        }
+      }
+
+      shuffle(available);
+
+      for (let i = 0; i < BALL_TOTAL && i < available.length; i++) {
+        const p = available[i];
+        mazeLayout[p.y][p.x] = BALL;
+      }
+
+      initialLayout = cloneMaze(mazeLayout);
+    }
+
+    function shuffle(array) {
+      // Fisher-Yates shuffle avoids biased random sorting.
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+
+      return array;
+    }
+
+    function cloneMaze(maze) {
+      return maze.map(row => row.slice());
+    }
+
+    // --------------------------------------------------
+    // BOARD RENDERING
+    // --------------------------------------------------
+
+    function renderBoard() {
+      const fragment = document.createDocumentFragment();
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+
+          const type = mazeLayout[y][x];
+
+          if (type === WALL) {
+            cell.classList.add("wall");
+          } else {
+            cell.classList.add("path");
+          }
+
+          if (x === GOAL.x && y === GOAL.y) {
+            cell.classList.add("goal");
+          }
+
+          if (x === playerPos.x && y === playerPos.y) {
+            cell.classList.add("player");
+            cell.textContent = "👦";
+          } else if (type === GOAL_CELL) {
+            const badge = document.createElement("span");
+            badge.className = "myg-badge";
+            badge.textContent = "myG";
+            cell.appendChild(badge);
+          } else if (type === BALL) {
+            cell.classList.add("ball");
+            cell.textContent = "⚽";
+          }
+
+          fragment.appendChild(cell);
+        }
+      }
+
+      // Replace all cells in one DOM operation.
+      grid.replaceChildren(fragment);
+    }
+
+    // --------------------------------------------------
+    // MOVEMENT AND GAME LOGIC
+    // --------------------------------------------------
+
+    function movePlayer(dx, dy) {
+      if (gameWon) return false;
+
+      const newX = playerPos.x + dx;
+      const newY = playerPos.y + dy;
+
+      // Explicit bounds checking prevents out-of-range access.
+      if (
+        newX < 0 ||
+        newX >= SIZE ||
+        newY < 0 ||
+        newY >= SIZE
+      ) {
+        return false;
+      }
+
+      // Walls always block movement.
+      if (mazeLayout[newY][newX] === WALL) {
+        return false;
+      }
+
+      playerPos = { x: newX, y: newY };
+      steps++;
+
+      const destination = mazeLayout[newY][newX];
+
+      if (destination === BALL) {
+        mazeLayout[newY][newX] = PATH;
+        collectedBalls++;
+
+        statusText.textContent =
+          `⚽ Ball collected! ${collectedBalls}/${BALL_TOTAL}`;
+      } else {
+        statusText.textContent = "";
+      }
+
+      updateStats();
+      renderBoard();
+
+      if (newX === GOAL.x && newY === GOAL.y) {
+        gameWon = true;
+
+        if (collectedBalls === BALL_TOTAL) {
+          statusText.textContent =
+            `🏆 Perfect victory! All balls collected in ${steps} steps!`;
+        } else {
+          statusText.textContent =
+            `🎉 You reached myG in ${steps} steps! Balls: ${collectedBalls}/${BALL_TOTAL}`;
+        }
+      }
+
+      return true;
+    }
+
+    function updateStats() {
+      stepDisplay.textContent = steps;
+      ballDisplay.textContent = `${collectedBalls} / ${BALL_TOTAL}`;
+    }
+
+    function newMaze() {
+      playerPos = { ...START };
+      steps = 0;
+      collectedBalls = 0;
+      gameWon = false;
+
+      generateConnectedMaze();
+      updateStats();
+      renderBoard();
+
+      statusText.textContent =
+        "New hard maze generated! Find your way to myG.";
+    }
+
+    function resetGame() {
+      playerPos = { ...START };
+      steps = 0;
+      collectedBalls = 0;
+      gameWon = false;
+
+      mazeLayout = cloneMaze(initialLayout);
+
+      updateStats();
+      renderBoard();
+
+      statusText.textContent =
+        "Maze restarted. Drag the boy to reach myG!";
+    }
+
+    document.getElementById("new-maze")
+      .addEventListener("click", newMaze);
+
+    document.getElementById("restart")
+      .addEventListener("click", resetGame);
+
+    // --------------------------------------------------
+    // SMOOTH CROSS-DEVICE DRAG CONTROLS
+    // Uses Pointer Events for mouse, touch and stylus.
+    // --------------------------------------------------
+
+    let activePointerId = null;
+    let lastX = 0;
+    let lastY = 0;
+    let accumulatedX = 0;
+    let accumulatedY = 0;
+
+    function getCellSize() {
+      return grid.getBoundingClientRect().width / SIZE;
+    }
+
+    function startDrag(event) {
+      // Ignore secondary mouse buttons and multitouch pointers.
+      if (activePointerId !== null) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      event.preventDefault();
+
+      activePointerId = event.pointerId;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      accumulatedX = 0;
+      accumulatedY = 0;
+
+      grid.classList.add("dragging");
+
+      // Keep receiving movement even when the pointer leaves the grid.
+      try {
+        grid.setPointerCapture(event.pointerId);
+      } catch (_) {
+        // Pointer capture may be unavailable in unusual browsers.
+      }
+    }
+
+    function moveDrag(event) {
+      if (event.pointerId !== activePointerId) return;
+      if (gameWon) return;
+
+      event.preventDefault();
+
+      accumulatedX += event.clientX - lastX;
+      accumulatedY += event.clientY - lastY;
+
+      lastX = event.clientX;
+      lastY = event.clientY;
+
+      // Process multiple cells if the pointer moves quickly.
+      // The threshold is based on the actual rendered cell size.
+      const threshold = Math.max(3, getCellSize() * 0.62);
+
+      let safety = 0;
+
+      while (
+        Math.max(
+          Math.abs(accumulatedX),
+          Math.abs(accumulatedY)
+        ) >= threshold &&
+        safety < 60
+      ) {
+        safety++;
+
+        // Prefer the dominant direction to avoid erratic diagonals.
+        if (Math.abs(accumulatedX) >= Math.abs(accumulatedY)) {
+          const direction = accumulatedX > 0 ? 1 : -1;
+          accumulatedX -= direction * threshold;
+          accumulatedY *= 0.35;
+
+          const moved = movePlayer(direction, 0);
+
+          if (!moved) {
+            // Do not repeatedly push against a wall.
+            accumulatedX = 0;
+            accumulatedY = 0;
+            break;
+          }
+        } else {
+          const direction = accumulatedY > 0 ? 1 : -1;
+          accumulatedY -= direction * threshold;
+          accumulatedX *= 0.35;
+
+          const moved = movePlayer(0, direction);
+
+          if (!moved) {
+            accumulatedX = 0;
+            accumulatedY = 0;
+            break;
+          }
+        }
+
+        if (gameWon) {
+          accumulatedX = 0;
+          accumulatedY = 0;
+          break;
+        }
+      }
+    }
+
+    function endDrag(event) {
+      if (
+        activePointerId !== null &&
+        event.pointerId !== activePointerId
+      ) {
+        return;
+      }
+
+      const pointerId = activePointerId;
+      activePointerId = null;
+
+      accumulatedX = 0;
+      accumulatedY = 0;
+
+      grid.classList.remove("dragging");
+
+      if (pointerId !== null) {
+        try {
+          if (grid.hasPointerCapture(pointerId)) {
+            grid.releasePointerCapture(pointerId);
+          }
+        } catch (_) {
+          // Safe to ignore if capture was already released.
+        }
+      }
+    }
+
+    grid.addEventListener("pointerdown", startDrag);
+    grid.addEventListener("pointermove", moveDrag);
+    grid.addEventListener("pointerup", endDrag);
+    grid.addEventListener("pointercancel", endDrag);
+    grid.addEventListener("lostpointercapture", endDrag);
+
+    // --------------------------------------------------
+    // KEYBOARD CONTROLS
+    // --------------------------------------------------
+
+    window.addEventListener("keydown", event => {
+      const key = event.key.toLowerCase();
+
+      const directions = {
+        arrowup: [0, -1],
+        w: [0, -1],
+        arrowdown: [0, 1],
+        s: [0, 1],
+        arrowleft: [-1, 0],
+        a: [-1, 0],
+        arrowright: [1, 0],
+        d: [1, 0]
+      };
+
+      if (!directions[key]) return;
+
+      // Prevent arrow keys from scrolling the page.
+      event.preventDefault();
+
+      const [dx, dy] = directions[key];
+      movePlayer(dx, dy);
+    });
+
+    // --------------------------------------------------
+    // START GAME
+    // --------------------------------------------------
+
+    generateConnectedMaze();
+    updateStats();
+    renderBoard();
+  </script>
+</body>
+</html>
